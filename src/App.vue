@@ -3,9 +3,12 @@ import { ref } from 'vue'
 import workflowTemplate from './workflow_api.json'
 
 // --- STATE ---
-const promptInput = ref('A beautiful landscape, mountains, river, vector art')
-// Tambahkan state baru untuk Negative Prompt (Default: text, watermark)
-const negativeInput = ref('text, watermark, low quality, blurry')
+const promptInput = ref(
+  'A professional interior mockup photography, a large vertical wooden frame leaning against a white wainscoting wall on a light oak wooden floor.',
+)
+// Negative prompt input tetap ada di UI jika ingin disimpan,
+// tapi TIDAK AKAN dikirim ke ComfyUI karena workflow baru tidak mendukung input teks negative standar.
+const negativeInput = ref('')
 const status = ref('Idle')
 const generatedImage = ref(null)
 
@@ -15,31 +18,26 @@ const generateImage = async () => {
   status.value = 'Processing...'
   generatedImage.value = null
 
-  // 1. Clone workflow
+  // 1. Clone workflow dari file JSON yang diimport
   const payload = JSON.parse(JSON.stringify(workflowTemplate))
 
   // ---------------------------------------------------------
   // MODIFIKASI PARAMETER
   // ---------------------------------------------------------
 
-  // A. POSITIVE PROMPT (Node ID 6)
-  if (payload['6']) {
-    payload['6']['inputs']['text'] = promptInput.value
+  // A. POSITIVE PROMPT (Update ID Node ke 53:45)
+  if (payload['53:45']) {
+    payload['53:45']['inputs']['text'] = promptInput.value
   }
 
-  // B. NEGATIVE PROMPT (Node ID 7)
-  // Kita tambahkan logika untuk mengubah Node ID 7 juga
-  if (payload['7']) {
-    payload['7']['inputs']['text'] = negativeInput.value
-  }
-
-  // C. RANDOM SEED (Node ID 13)
-  if (payload['13']) {
-    payload['13']['inputs']['noise_seed'] = Math.floor(Math.random() * 100000000000000)
-  }
+  // B. NEGATIVE PROMPT & C. SEED
+  // Sesuai instruksi:
+  // 1. Seed TIDAK di-random (menggunakan nilai asli dari JSON yaitu 277251746703202).
+  // 2. Tidak ada node teks negative di workflow ini (menggunakan ConditioningZeroOut),
+  //    jadi kita tidak mengubah apa pun selain Positive Prompt.
 
   try {
-    // Kirim Request (Sama seperti sebelumnya)
+    // Kirim Request
     const response = await fetch(`${COMFY_URL}/prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,8 +60,8 @@ const generateImage = async () => {
           clearInterval(checkStatus)
           status.value = 'Selesai!'
 
-          // Ambil Output Gambar (Node ID 27)
-          const nodeOutput = historyData[promptId].outputs['27']
+          // Ambil Output Gambar (Update ID Node ke 9 sesuai workflow baru)
+          const nodeOutput = historyData[promptId].outputs['9']
           if (nodeOutput && nodeOutput.images.length > 0) {
             const imgInfo = nodeOutput.images[0]
             generatedImage.value = `${COMFY_URL}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
@@ -82,16 +80,22 @@ const generateImage = async () => {
 
 <template>
   <div class="container">
-    <h1>ComfyUI Generator</h1>
+    <h1>ComfyUI Generator (Flux Krea)</h1>
 
     <div class="input-group">
       <label class="label-pos">Positive Prompt (Ingin Gambar Apa?)</label>
-      <textarea v-model="promptInput" rows="3"></textarea>
+      <textarea v-model="promptInput" rows="5"></textarea>
     </div>
 
     <div class="input-group">
-      <label class="label-neg">Negative Prompt (Hindari Apa?)</label>
-      <textarea v-model="negativeInput" rows="2" class="neg-input"></textarea>
+      <label class="label-neg">Negative Prompt (Tidak Aktif di Workflow ini)</label>
+      <textarea
+        v-model="negativeInput"
+        rows="2"
+        class="neg-input"
+        disabled
+        placeholder="Workflow ini tidak menggunakan negative prompt teks"
+      ></textarea>
     </div>
 
     <button @click="generateImage" :disabled="status === 'Processing...'" class="generate-btn">
@@ -126,10 +130,10 @@ label {
 }
 .label-pos {
   color: #2e7d32;
-} /* Hijau untuk positif */
+}
 .label-neg {
-  color: #c62828;
-} /* Merah untuk negatif */
+  color: #999; /* Abu-abu karena disabled */
+}
 
 textarea {
   width: 100%;
@@ -139,9 +143,10 @@ textarea {
   font-family: inherit;
 }
 .neg-input {
-  background-color: #fff0f0;
-  border-color: #ffcdd2;
-} /* Sedikit merah muda backgroundnya */
+  background-color: #f0f0f0;
+  border-color: #ddd;
+  cursor: not-allowed;
+}
 
 .generate-btn {
   padding: 12px;
