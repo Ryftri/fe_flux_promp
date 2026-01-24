@@ -1,9 +1,9 @@
 {
   "9": {
     "inputs": {
-      "filename_prefix": "flux_krea",
+      "filename_prefix": "z-image",
       "images": [
-        "53:8",
+        "43",
         0
       ]
     },
@@ -12,19 +12,18 @@
       "title": "Save Image"
     }
   },
-  "53:40": {
+  "39": {
     "inputs": {
-      "clip_name1": "clip_l.safetensors",
-      "clip_name2": "t5xxl_fp16.safetensors",
-      "type": "flux",
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
       "device": "default"
     },
-    "class_type": "DualCLIPLoader",
+    "class_type": "CLIPLoader",
     "_meta": {
-      "title": "DualCLIPLoader"
+      "title": "Load CLIP"
     }
   },
-  "53:39": {
+  "40": {
     "inputs": {
       "vae_name": "ae.safetensors"
     },
@@ -33,45 +32,7 @@
       "title": "Load VAE"
     }
   },
-  "53:42": {
-    "inputs": {
-      "conditioning": [
-        "53:45",
-        0
-      ]
-    },
-    "class_type": "ConditioningZeroOut",
-    "_meta": {
-      "title": "ConditioningZeroOut"
-    }
-  },
-  "53:8": {
-    "inputs": {
-      "samples": [
-        "53:31",
-        0
-      ],
-      "vae": [
-        "53:39",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "VAE Decode"
-    }
-  },
-  "53:38": {
-    "inputs": {
-      "unet_name": "flux1-krea-dev_fp8_scaled.safetensors",
-      "weight_dtype": "default"
-    },
-    "class_type": "UNETLoader",
-    "_meta": {
-      "title": "Load Diffusion Model"
-    }
-  },
-  "53:27": {
+  "41": {
     "inputs": {
       "width": 2000,
       "height": 2000,
@@ -82,28 +43,56 @@
       "title": "EmptySD3LatentImage"
     }
   },
-  "53:31": {
+  "42": {
     "inputs": {
-      "seed": 277251746703202,
-      "steps": 20,
+      "conditioning": [
+        "45",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut"
+    }
+  },
+  "43": {
+    "inputs": {
+      "samples": [
+        "44",
+        0
+      ],
+      "vae": [
+        "40",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "44": {
+    "inputs": {
+      "seed": 913549832785624,
+      "steps": 9,
       "cfg": 1,
-      "sampler_name": "euler",
+      "sampler_name": "res_multistep",
       "scheduler": "simple",
       "denoise": 1,
       "model": [
-        "53:38",
+        "47",
         0
       ],
       "positive": [
-        "53:45",
+        "45",
         0
       ],
       "negative": [
-        "53:42",
+        "42",
         0
       ],
       "latent_image": [
-        "53:27",
+        "41",
         0
       ]
     },
@@ -112,13 +101,101 @@
       "title": "KSampler"
     }
   },
-  "53:45": {
+  "45": {
     "inputs": {
-      "text": "A professional interior mockup photography, a large vertical wooden frame leaning against a white wainscoting wall on a light oak wooden floor. Inside the frame is a minimalist yellow watercolor abstract painting with horizontal brush strokes. Soft natural sunlight from a window, high quality, 8k resolution, highly detailed wood grain texture, realistic shadows. front point of view",
+      "text": "A professional architectural interior photography of a sophisticated mid-century modern room. A large vertical minimalist abstract painting in a thin light oak reflective with glass material inside the frame is mounted on a dark brown, highly textured wood-paneled wall, centered above a long walnut wood sideboard. The artwork features organic, flowing shapes in beige and tan tones with a single prominent black circle. To the left, a sculptural curved wooden lounge chair with cream upholstery and detailed fabric chair material. Large floor-to-ceiling windows frame a view of a lush green forest outside. Dramatic natural sunlight streams from the left, casting sharp, intricate tree branch shadows across the sideboard and the light carpet. Highly detailed wood grain texture, realistic contact shadows, ambient occlusion, ray tracing, 8k resolution, and sharp focus.",
       "clip": [
-        "53:40",
+        "39",
         0
       ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "46": {
+    "inputs": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "47": {
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "46",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "ModelSamplingAuraFlow"
+    }
+  },
+  "60": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "61": {
+    "inputs": {
+      "upscale_model": [
+        "64",
+        0
+      ],
+      "image": [
+        "43",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "62": {
+    "inputs": {
+      "filename_prefix": "4xz-image",
+      "images": [
+        "61",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "64": {
+    "inputs": {
+      "model_name": "4x-UltraSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "65": {
+    "inputs": {
+      "model_name": "4x_NMKD-Siax_200k.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "70": {
+    "inputs": {
+      "text": "(extra limbs:1.5), (three hands:1.5), (extra fingers:1.2), mutated hands, poorly drawn hands, bad anatomy, deformed, unnatural body position, blurry, distorted frame. no three hands holding frame\npores, skin texture, blemishes, moles, freckles, acne, wrinkles, rough skin, realistic skin details, sharp skin texture"
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
