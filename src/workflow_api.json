@@ -34,8 +34,8 @@
   },
   "41": {
     "inputs": {
-      "width": 2000,
-      "height": 2000,
+      "width": 1024,
+      "height": 1024,
       "batch_size": 1
     },
     "class_type": "EmptySD3LatentImage",
@@ -44,12 +44,7 @@
     }
   },
   "42": {
-    "inputs": {
-      "conditioning": [
-        "45",
-        0
-      ]
-    },
+    "inputs": {},
     "class_type": "ConditioningZeroOut",
     "_meta": {
       "title": "ConditioningZeroOut"
@@ -73,8 +68,8 @@
   },
   "44": {
     "inputs": {
-      "seed": 913549832785624,
-      "steps": 9,
+      "seed": 998844543086744,
+      "steps": 20,
       "cfg": 1,
       "sampler_name": "res_multistep",
       "scheduler": "simple",
@@ -88,7 +83,7 @@
         0
       ],
       "negative": [
-        "42",
+        "70",
         0
       ],
       "latent_image": [
@@ -103,7 +98,7 @@
   },
   "45": {
     "inputs": {
-      "text": "A professional architectural interior photography of a sophisticated mid-century modern room. A large vertical minimalist abstract painting in a thin light oak reflective with glass material inside the frame is mounted on a dark brown, highly textured wood-paneled wall, centered above a long walnut wood sideboard. The artwork features organic, flowing shapes in beige and tan tones with a single prominent black circle. To the left, a sculptural curved wooden lounge chair with cream upholstery and detailed fabric chair material. Large floor-to-ceiling windows frame a view of a lush green forest outside. Dramatic natural sunlight streams from the left, casting sharp, intricate tree branch shadows across the sideboard and the light carpet. Highly detailed wood grain texture, realistic contact shadows, ambient occlusion, ray tracing, 8k resolution, and sharp focus.",
+      "text": "A photograph of a woman holding up a wooden picture frame, obscuring her face, standing in a field of wildflowers at sunset. The frame contains the abstract retro floral art print in earthy tones (terracotta, mustard yellow, dusty pink, brown) seen in image_17.png. The woman is wearing a pleated white skirt. The late afternoon sun casts warm golden light and soft, long shadows across the field, creating a dreamy, natural atmosphere. The central text \"FRAME MOCKUP\" is completely removed, showing only the clear art print within the frame. The circular logo text \"DIN STANDARD RATIOS...\" and the bottom text \"BY INFINITY MOCKUP LAB\" are also removed for a clean image.\n\n[Technical Detail]:\nProfessional photography with a Hasselblad X2D 100C, extremely high resolution, sharp focus, natural color science, architectural interior style, clean minimalist rendering, 8k resolution.",
       "clip": [
         "39",
         0
@@ -137,65 +132,13 @@
       "title": "ModelSamplingAuraFlow"
     }
   },
-  "60": {
-    "inputs": {
-      "model_name": "4x-UltraSharp.pth"
-    },
-    "class_type": "UpscaleModelLoader",
-    "_meta": {
-      "title": "Load Upscale Model"
-    }
-  },
-  "61": {
-    "inputs": {
-      "upscale_model": [
-        "64",
-        0
-      ],
-      "image": [
-        "43",
-        0
-      ]
-    },
-    "class_type": "ImageUpscaleWithModel",
-    "_meta": {
-      "title": "Upscale Image (using Model)"
-    }
-  },
-  "62": {
-    "inputs": {
-      "filename_prefix": "4xz-image",
-      "images": [
-        "61",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
-    }
-  },
-  "64": {
-    "inputs": {
-      "model_name": "4x-UltraSharp.pth"
-    },
-    "class_type": "UpscaleModelLoader",
-    "_meta": {
-      "title": "Load Upscale Model"
-    }
-  },
-  "65": {
-    "inputs": {
-      "model_name": "4x_NMKD-Siax_200k.pth"
-    },
-    "class_type": "UpscaleModelLoader",
-    "_meta": {
-      "title": "Load Upscale Model"
-    }
-  },
   "70": {
     "inputs": {
-      "text": "(extra limbs:1.5), (three hands:1.5), (extra fingers:1.2), mutated hands, poorly drawn hands, bad anatomy, deformed, unnatural body position, blurry, distorted frame. no three hands holding frame\npores, skin texture, blemishes, moles, freckles, acne, wrinkles, rough skin, realistic skin details, sharp skin texture"
+      "text": "text, watermark, writing, letters, words, logo, signature, brand name, frame mockup, maquetiva, overlay, annotated, blurry, low quality, **rough texture, stucco, plaster grain, bumpy surface, uneven wall**.",
+      "clip": [
+        "39",
+        0
+      ]
     },
     "class_type": "CLIPTextEncode",
     "_meta": {

@@ -4,33 +4,29 @@ import workflowTemplate from './workflow_api.json'
 
 // --- STATE ---
 const promptInput = ref(
-  'A professional architectural interior photography of a sophisticated mid-century modern room. A large vertical minimalist abstract painting in a thin light oak reflective with glass material inside the frame.',
+  'A photograph of a woman holding up a wooden picture frame, obscuring her face, standing in a field of wildflowers at sunset...',
 )
 
-// Negative prompt input tetap ada di UI tapi disabled
-// karena workflow ini menggunakan ConditioningZeroOut untuk negative
-const negativeInput = ref('')
-const status = ref('Idle')
+// Negative prompt sekarang AKTIF karena JSON baru menggunakan Node 70
+const negativeInput = ref(
+  'text, watermark, writing, letters, words, logo, signature, brand name, frame mockup, blurry, low quality, rough texture',
+)
 
-// State untuk DUA output gambar
-const generatedImageNormal = ref(null) // Output Node 9
-const generatedImageUpscaled = ref(null) // Output Node 62
+const status = ref('Idle')
+const generatedImage = ref(null) // Hanya satu output sekarang
 
 // Ganti IP ini sesuai dengan IP komputer ComfyUI Anda
 const COMFY_URL = 'http://192.168.1.20:8188'
 
 const generateImage = async () => {
   status.value = 'Processing...'
-
-  // Reset gambar sebelumnya
-  generatedImageNormal.value = null
-  generatedImageUpscaled.value = null
+  generatedImage.value = null // Reset gambar
 
   // 1. Clone workflow dari file JSON
   const payload = JSON.parse(JSON.stringify(workflowTemplate))
 
   // ---------------------------------------------------------
-  // MODIFIKASI PARAMETER (Berdasarkan ID Workflow Baru)
+  // MODIFIKASI PARAMETER (Sesuai JSON Baru)
   // ---------------------------------------------------------
 
   // A. POSITIVE PROMPT (Node ID: 45)
@@ -38,8 +34,14 @@ const generateImage = async () => {
     payload['45']['inputs']['text'] = promptInput.value
   }
 
-  // B. SEED (Node ID: 44)
-  // Kita acak seed-nya agar gambar selalu baru setiap di-klik
+  // B. NEGATIVE PROMPT (Node ID: 70) - BARU!
+  // Di workflow baru, input negative ada di Node 70
+  if (payload['70']) {
+    payload['70']['inputs']['text'] = negativeInput.value
+  }
+
+  // C. SEED (Node ID: 44)
+  // Acak seed agar gambar selalu baru
   const randomSeed = Math.floor(Math.random() * 100000000000000)
   if (payload['44']) {
     payload['44']['inputs']['seed'] = randomSeed
@@ -71,16 +73,10 @@ const generateImage = async () => {
 
           const outputs = historyData[promptId].outputs
 
-          // 1. Ambil Output Gambar Normal (Node 9)
+          // Ambil Output Gambar Utama (Node 9)
           if (outputs['9'] && outputs['9'].images.length > 0) {
             const imgInfo = outputs['9'].images[0]
-            generatedImageNormal.value = `${COMFY_URL}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
-          }
-
-          // 2. Ambil Output Gambar Upscaled (Node 62)
-          if (outputs['62'] && outputs['62'].images.length > 0) {
-            const imgInfo = outputs['62'].images[0]
-            generatedImageUpscaled.value = `${COMFY_URL}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
+            generatedImage.value = `${COMFY_URL}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
           }
         }
       } catch (e) {
@@ -96,21 +92,20 @@ const generateImage = async () => {
 
 <template>
   <div class="container">
-    <h1>ComfyUI Generator (Z-Image Turbo)</h1>
+    <h1>ComfyUI Generator (Flux/SD3)</h1>
 
     <div class="input-group">
-      <label class="label-pos">Positive Prompt (Ingin Gambar Apa?)</label>
+      <label class="label-pos">Positive Prompt</label>
       <textarea v-model="promptInput" rows="5"></textarea>
     </div>
 
     <div class="input-group">
-      <label class="label-neg">Negative Prompt (Tidak Aktif)</label>
+      <label class="label-neg">Negative Prompt</label>
       <textarea
         v-model="negativeInput"
-        rows="2"
+        rows="3"
         class="neg-input"
-        disabled
-        placeholder="Workflow ini menggunakan ZeroOut (Negative prompt text diabaikan)"
+        placeholder="Masukkan hal yang ingin dihindari..."
       ></textarea>
     </div>
 
@@ -122,23 +117,16 @@ const generateImage = async () => {
       Status: <strong>{{ status }}</strong>
     </p>
 
-    <div class="results-grid">
-      <div v-if="generatedImageNormal" class="result-card">
-        <h3>Original (1x)</h3>
-        <img :src="generatedImageNormal" class="result-image" />
-      </div>
-
-      <div v-if="generatedImageUpscaled" class="result-card">
-        <h3>Upscaled (4x)</h3>
-        <img :src="generatedImageUpscaled" class="result-image" />
-      </div>
+    <div v-if="generatedImage" class="result-container">
+      <h3>Result (1024x1024)</h3>
+      <img :src="generatedImage" class="result-image" />
     </div>
   </div>
 </template>
 
 <style scoped>
 .container {
-  max-width: 900px; /* Diperlebar sedikit agar muat 2 gambar */
+  max-width: 800px;
   margin: 0 auto;
   padding: 20px;
   font-family: sans-serif;
@@ -156,7 +144,7 @@ label {
   color: #2e7d32;
 }
 .label-neg {
-  color: #999;
+  color: #c62828; /* Merah untuk negative */
 }
 
 textarea {
@@ -165,12 +153,13 @@ textarea {
   border-radius: 8px;
   border: 1px solid #ccc;
   font-family: inherit;
-  box-sizing: border-box; /* Agar padding tidak melebar keluar */
+  box-sizing: border-box;
 }
+
+/* Style normal untuk negative input */
 .neg-input {
-  background-color: #f0f0f0;
-  border-color: #ddd;
-  cursor: not-allowed;
+  background-color: #fff;
+  border-color: #ccc;
 }
 
 .generate-btn {
@@ -182,43 +171,30 @@ textarea {
   width: 100%;
   cursor: pointer;
   font-weight: bold;
+  margin-top: 10px;
 }
 .generate-btn:disabled {
   background: #ccc;
 }
 
-/* Styles Baru untuk Grid Hasil */
-.results-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr; /* 2 kolom sama besar */
-  gap: 20px;
+.status-text {
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* Container hasil gambar single */
+.result-container {
   margin-top: 30px;
-}
-
-@media (max-width: 600px) {
-  .results-grid {
-    grid-template-columns: 1fr; /* Jadi 1 kolom di HP */
-  }
-}
-
-.result-card {
   text-align: center;
   background: #f9f9f9;
-  padding: 10px;
-  border-radius: 8px;
+  padding: 20px;
+  border-radius: 12px;
   border: 1px solid #eee;
-}
-
-.result-card h3 {
-  margin-top: 0;
-  font-size: 16px;
-  color: #333;
 }
 
 .result-image {
   max-width: 100%;
-  border-radius: 4px;
-  display: block;
-  margin: 0 auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 </style>
