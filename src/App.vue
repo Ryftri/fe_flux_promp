@@ -14,8 +14,18 @@ const promptInput = ref(
 const negativeInput = ref(
   'text, watermark, writing, letters, words, logo, signature, brand name, frame mockup, blurry, low quality, rough texture',
 )
+
+// -- State Resolusi Canvas --
+const width = ref(1024)
+const height = ref(1024)
+
 const status = ref('Idle')
 const generatedImage = ref(null)
+
+// -- FITUR BARU: Timer State --
+const executionTime = ref('0.0')
+let timerInterval = null
+let startTime = 0
 
 const toggleLock = () => {
   if (!serverIp.value.trim()) {
@@ -23,6 +33,20 @@ const toggleLock = () => {
     return
   }
   isLocked.value = !isLocked.value
+}
+
+const startTimer = () => {
+  if (timerInterval) clearInterval(timerInterval)
+  startTime = Date.now()
+  executionTime.value = '0.0'
+  timerInterval = setInterval(() => {
+    const elapsed = (Date.now() - startTime) / 1000
+    executionTime.value = elapsed.toFixed(1)
+  }, 100)
+}
+
+const stopTimer = () => {
+  if (timerInterval) clearInterval(timerInterval)
 }
 
 const generateImage = async () => {
@@ -36,7 +60,16 @@ const generateImage = async () => {
   status.value = 'Processing...'
   generatedImage.value = null
 
+  // Mulai penghitung waktu
+  startTimer()
+
   const payload = JSON.parse(JSON.stringify(workflowTemplate))
+
+  // Inject ukuran canvas ke Node 41
+  if (payload['41']) {
+    payload['41']['inputs']['width'] = parseInt(width.value)
+    payload['41']['inputs']['height'] = parseInt(height.value)
+  }
 
   if (payload['45']) payload['45']['inputs']['text'] = promptInput.value
   if (payload['70']) payload['70']['inputs']['text'] = negativeInput.value
@@ -61,6 +94,7 @@ const generateImage = async () => {
 
         if (historyData[promptId]) {
           clearInterval(checkStatus)
+          stopTimer() // Hentikan timer saat selesai
           status.value = 'Idle'
 
           const outputs = historyData[promptId].outputs
@@ -71,10 +105,12 @@ const generateImage = async () => {
         }
       } catch (e) {
         clearInterval(checkStatus)
+        stopTimer()
         status.value = 'Error polling'
       }
     }, 1000)
   } catch (error) {
+    stopTimer()
     status.value = `Error: ${error.message}`
   }
 }
@@ -85,7 +121,7 @@ const generateImage = async () => {
     <aside class="sidebar">
       <div class="sidebar-header">
         <h1 class="brand-title">ComfyUI <span class="brand-pro">PRO</span></h1>
-        <span class="version-tag">v1.1</span>
+        <span class="version-tag">v1.2</span>
       </div>
 
       <div class="sidebar-content">
@@ -111,9 +147,41 @@ const generateImage = async () => {
           ></textarea>
         </div>
 
-        <div v-if="status !== 'Idle'" class="status-indicator">
-          <div class="spinner"></div>
-          <span>{{ status }}</span>
+        <div class="input-group">
+          <label class="label-heading"> <span class="dot blue"></span> Canvas Size </label>
+          <div class="res-container">
+            <div class="res-field">
+              <span class="res-label">W</span>
+              <input
+                type="number"
+                v-model="width"
+                class="text-input res-input"
+                step="64"
+                min="256"
+              />
+            </div>
+            <div class="res-separator">×</div>
+            <div class="res-field">
+              <span class="res-label">H</span>
+              <input
+                type="number"
+                v-model="height"
+                class="text-input res-input"
+                step="64"
+                min="256"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="status !== 'Idle' || executionTime !== '0.0'"
+          class="status-indicator"
+          :class="{ done: status === 'Idle' }"
+        >
+          <div v-if="status === 'Processing...'" class="spinner"></div>
+          <span class="status-text">{{ status === 'Idle' ? 'Finished' : status }}</span>
+          <span class="timer-display">{{ executionTime }}s</span>
         </div>
       </div>
 
@@ -273,6 +341,41 @@ body {
 .dot.red {
   background-color: var(--accent-red);
 }
+.dot.blue {
+  background-color: #3498db;
+  box-shadow: 0 0 8px rgba(52, 152, 219, 0.4);
+}
+
+/* Resolusi Styles */
+.res-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.res-field {
+  position: relative;
+  flex: 1;
+}
+.res-label {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: bold;
+  pointer-events: none;
+}
+.res-input {
+  padding-left: 30px !important;
+  text-align: center;
+  font-family: monospace;
+}
+.res-separator {
+  color: var(--text-muted);
+  font-weight: bold;
+}
+
 .text-input {
   width: 100%;
   background-color: var(--bg-input);
@@ -298,17 +401,25 @@ body {
   height: 100px;
 }
 
+/* Status Indicator Update */
 .status-indicator {
   background: rgba(41, 128, 185, 0.15);
   border: 1px solid rgba(41, 128, 185, 0.3);
-  padding: 10px;
+  padding: 12px;
   border-radius: 6px;
   display: flex;
   align-items: center;
+  justify-content: space-between; /* Pisahkan text dan timer */
   gap: 10px;
   font-size: 0.9rem;
   color: #3498db;
 }
+.status-indicator.done {
+  background: rgba(39, 174, 96, 0.15);
+  border-color: rgba(39, 174, 96, 0.3);
+  color: var(--accent-green);
+}
+
 .spinner {
   width: 16px;
   height: 16px;
@@ -316,12 +427,22 @@ body {
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  margin-right: 5px;
 }
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
+
+.timer-display {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-weight: bold;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .sidebar-footer {
   padding: 20px;
   background-color: var(--bg-sidebar);
