@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import workflowTemplate from './workflow_api.json'
+import upscaleTemplate from './upscale_api.json'
 
 const serverIp = ref('192.168.1.20')
 const serverPort = '8188'
@@ -19,10 +20,15 @@ const negativeInput = ref(
 const width = ref(1024)
 const height = ref(1024)
 
+// -- State Status & Gambar --
 const status = ref('Idle')
 const generatedImage = ref(null)
 
-// -- FITUR BARU: Timer State --
+// KITA BUTUH MENYIMPAN INFO LENGKAP GAMBAR (Filename, Subfolder, Type)
+const lastImageInfo = ref(null)
+const isUpscaled = ref(false)
+
+// -- Timer State --
 const executionTime = ref('0.0')
 let timerInterval = null
 let startTime = 0
@@ -49,18 +55,121 @@ const stopTimer = () => {
   if (timerInterval) clearInterval(timerInterval)
 }
 
+// --- FUNGSI BARU: Upload Image ke Input Folder ---
+// Ini solusi untuk memindahkan gambar dari Output -> Input agar terbaca oleh LoadImage
+const uploadImageToInput = async (imgInfo) => {
+  try {
+    // 1. Download gambar dari output folder (blob)
+    const imageUrl = `${fullComfyUrl.value}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
+    const fetchRes = await fetch(imageUrl)
+    const blob = await fetchRes.blob()
+
+    // 2. Siapkan Form Data
+    const formData = new FormData()
+    formData.append('image', blob, imgInfo.filename)
+    formData.append('overwrite', 'true') // Timpa jika ada nama sama
+
+    // 3. Upload ke ComfyUI Input
+    const uploadRes = await fetch(`${fullComfyUrl.value}/upload/image`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!uploadRes.ok) throw new Error('Gagal memindahkan gambar ke folder Input.')
+
+    const result = await uploadRes.json()
+    return result.name // Kembalikan nama file yang berhasil di-upload
+  } catch (error) {
+    console.error(error)
+    throw new Error(`Upload Error: ${error.message}`)
+  }
+}
+
+// --- FUNGSI REUSABLE: Kirim ke ComfyUI ---
+const sendToComfy = async (payload, mode) => {
+  try {
+    const response = await fetch(`${fullComfyUrl.value}/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: payload }),
+    })
+
+    if (!response.ok) {
+      const errText = await response.text()
+      throw new Error(`Gagal mengirim prompt (${response.status}): ${errText}`)
+    }
+
+    const data = await response.json()
+    const promptId = data.prompt_id
+
+    const checkStatus = setInterval(async () => {
+      try {
+        const res = await fetch(`${fullComfyUrl.value}/history/${promptId}`)
+        const historyData = await res.json()
+
+        if (historyData[promptId]) {
+          clearInterval(checkStatus)
+          stopTimer()
+          status.value = 'Idle'
+
+          const outputs = historyData[promptId].outputs
+
+          // Target Node ID: 9 (Flux Save) atau 142 (Upscale Save)
+          // Sesuaikan ID ini jika Workflow berubah!
+          let targetNodeId = mode === 'generate' ? '9' : '142'
+          let imgInfo = null
+
+          // Cek target node spesifik
+          if (outputs[targetNodeId] && outputs[targetNodeId].images.length > 0) {
+            imgInfo = outputs[targetNodeId].images[0]
+          } else {
+            // Fallback: Cari node output manapun jika ID berubah
+            const keys = Object.keys(outputs)
+            for (const key of keys) {
+              if (outputs[key].images && outputs[key].images.length > 0) {
+                imgInfo = outputs[key].images[0]
+                break
+              }
+            }
+          }
+
+          if (imgInfo) {
+            generatedImage.value = `${fullComfyUrl.value}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
+
+            if (mode === 'generate') {
+              lastImageInfo.value = imgInfo // Simpan info lengkap
+              isUpscaled.value = false
+            } else if (mode === 'upscale') {
+              isUpscaled.value = true
+            }
+          }
+        }
+      } catch (e) {
+        clearInterval(checkStatus)
+        stopTimer()
+        status.value = 'Error polling'
+      }
+    }, 1000)
+  } catch (error) {
+    stopTimer()
+    status.value = `Error: ${error.message}`
+  }
+}
+
+// --- FUNGSI UTAMA: Generate Awal ---
 const generateImage = async () => {
   if (!isLocked.value) {
-    alert('Mohon kunci (Lock) konfigurasi IP Server terlebih dahulu di pojok kanan atas.')
+    alert('Mohon kunci (Lock) konfigurasi IP Server terlebih dahulu.')
     return
   }
 
-  if (status.value === 'Processing...') return
+  if (status.value === 'Processing...' || status.value === 'Upscaling...') return
 
   status.value = 'Processing...'
   generatedImage.value = null
+  lastImageInfo.value = null
+  isUpscaled.value = false
 
-  // Mulai penghitung waktu
   startTimer()
 
   const payload = JSON.parse(JSON.stringify(workflowTemplate))
@@ -75,43 +184,39 @@ const generateImage = async () => {
   if (payload['70']) payload['70']['inputs']['text'] = negativeInput.value
   if (payload['44']) payload['44']['inputs']['seed'] = Math.floor(Math.random() * 100000000000000)
 
+  await sendToComfy(payload, 'generate')
+}
+
+// --- FUNGSI BARU: Upscale dengan Auto-Upload ---
+const runUpscale = async () => {
+  if (!lastImageInfo.value) return
+  if (status.value !== 'Idle') return
+
+  status.value = 'Upscaling...'
+  startTimer()
+
   try {
-    const response = await fetch(`${fullComfyUrl.value}/prompt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: payload }),
-    })
+    // LANGKAH 1: Pindahkan gambar dari Output ke Input
+    const uploadedFilename = await uploadImageToInput(lastImageInfo.value)
 
-    if (!response.ok) throw new Error('Gagal mengirim prompt. Periksa IP/Koneksi.')
+    // LANGKAH 2: Siapkan Payload Upscale
+    const payload = JSON.parse(JSON.stringify(upscaleTemplate))
 
-    const data = await response.json()
-    const promptId = data.prompt_id
+    // Inject nama file yang BARU DI-UPLOAD ke Node 136 (Load Image)
+    if (payload['136']) {
+      payload['136']['inputs']['image'] = uploadedFilename
+    }
 
-    const checkStatus = setInterval(async () => {
-      try {
-        const res = await fetch(`${fullComfyUrl.value}/history/${promptId}`)
-        const historyData = await res.json()
+    // Randomize seed di Node 51 agar hasil natural
+    if (payload['51']) {
+      payload['51']['inputs']['seed'] = Math.floor(Math.random() * 100000000000000)
+    }
 
-        if (historyData[promptId]) {
-          clearInterval(checkStatus)
-          stopTimer() // Hentikan timer saat selesai
-          status.value = 'Idle'
-
-          const outputs = historyData[promptId].outputs
-          if (outputs['9'] && outputs['9'].images.length > 0) {
-            const imgInfo = outputs['9'].images[0]
-            generatedImage.value = `${fullComfyUrl.value}/view?filename=${imgInfo.filename}&subfolder=${imgInfo.subfolder}&type=${imgInfo.type}`
-          }
-        }
-      } catch (e) {
-        clearInterval(checkStatus)
-        stopTimer()
-        status.value = 'Error polling'
-      }
-    }, 1000)
-  } catch (error) {
+    // LANGKAH 3: Eksekusi Upscale
+    await sendToComfy(payload, 'upscale')
+  } catch (err) {
     stopTimer()
-    status.value = `Error: ${error.message}`
+    status.value = `Upscale Failed: ${err.message}`
   }
 }
 </script>
@@ -121,7 +226,7 @@ const generateImage = async () => {
     <aside class="sidebar">
       <div class="sidebar-header">
         <h1 class="brand-title">ComfyUI <span class="brand-pro">PRO</span></h1>
-        <span class="version-tag">v1.2</span>
+        <span class="version-tag">v1.4 Fix</span>
       </div>
 
       <div class="sidebar-content">
@@ -179,7 +284,7 @@ const generateImage = async () => {
           class="status-indicator"
           :class="{ done: status === 'Idle' }"
         >
-          <div v-if="status === 'Processing...'" class="spinner"></div>
+          <div v-if="status === 'Processing...' || status === 'Upscaling...'" class="spinner"></div>
           <span class="status-text">{{ status === 'Idle' ? 'Finished' : status }}</span>
           <span class="timer-display">{{ executionTime }}s</span>
         </div>
@@ -188,7 +293,7 @@ const generateImage = async () => {
       <div class="sidebar-footer">
         <button
           @click="generateImage"
-          :disabled="status === 'Processing...'"
+          :disabled="status !== 'Idle' && status !== 'Error polling'"
           class="btn-generate"
           :class="{ 'btn-loading': status === 'Processing...' }"
         >
@@ -234,7 +339,17 @@ const generateImage = async () => {
         <div v-else class="image-wrapper">
           <img :src="generatedImage" alt="Generated Result" class="result-image" />
           <div class="image-actions">
-            <a :href="generatedImage" target="_blank" class="btn-download">Open Full Size</a>
+            <button
+              v-if="lastImageInfo && !isUpscaled && status === 'Idle'"
+              @click="runUpscale"
+              class="btn-action btn-upscale"
+            >
+              ✨ Upscale 2x
+            </button>
+
+            <a :href="generatedImage" target="_blank" class="btn-action btn-download">
+              {{ isUpscaled ? 'Download HD' : 'Open Full Size' }}
+            </a>
           </div>
         </div>
       </div>
@@ -409,7 +524,7 @@ body {
   border-radius: 6px;
   display: flex;
   align-items: center;
-  justify-content: space-between; /* Pisahkan text dan timer */
+  justify-content: space-between;
   gap: 10px;
   font-size: 0.9rem;
   color: #3498db;
@@ -607,15 +722,39 @@ body {
 .image-wrapper:hover .image-actions {
   opacity: 1;
 }
-.btn-download {
-  background: white;
-  color: black;
-  padding: 8px 16px;
+
+/* Action Buttons */
+.btn-action {
+  padding: 10px 20px;
   border-radius: 20px;
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  border: none;
+  cursor: pointer;
+  margin: 0 5px;
+  transition:
+    transform 0.2s,
+    background 0.2s;
+}
+
+.btn-download {
+  background: white;
+  color: #181b21;
+}
+.btn-download:hover {
+  background: #f0f0f0;
+}
+
+.btn-upscale {
+  background: linear-gradient(135deg, #8e44ad, #9b59b6);
+  color: white;
+}
+.btn-upscale:hover {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
 }
 
 ::-webkit-scrollbar {

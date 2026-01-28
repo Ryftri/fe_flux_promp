@@ -1,0 +1,258 @@
+{
+    "6": {
+        "inputs": {
+            "text": "masterpiece",
+            "clip": [
+                "126",
+                1
+            ]
+        },
+        "class_type": "CLIPTextEncode",
+        "_meta": {
+            "title": "CLIP Text Encode (Prompt)"
+        }
+    },
+    "7": {
+        "inputs": {
+            "text": "ugly, low quality, lowres, low details, watermark",
+            "clip": [
+                "126",
+                1
+            ]
+        },
+        "class_type": "CLIPTextEncode",
+        "_meta": {
+            "title": "CLIP Text Encode (Prompt)"
+        }
+    },
+    "51": {
+        "inputs": {
+            "seed": 131357031167148,
+            "steps": 20,
+            "cfg": 5,
+            "sampler_name": "dpmpp_2m",
+            "scheduler": "karras",
+            "denoise": 0.25,
+            "model": [
+                "126",
+                0
+            ],
+            "positive": [
+                "6",
+                0
+            ],
+            "negative": [
+                "7",
+                0
+            ],
+            "latent_image": [
+                "110",
+                0
+            ]
+        },
+        "class_type": "KSampler",
+        "_meta": {
+            "title": "KSampler"
+        }
+    },
+    "100": {
+        "inputs": {
+            "upscale_model": [
+                "101",
+                0
+            ],
+            "image": [
+                "147",
+                0
+            ]
+        },
+        "class_type": "ImageUpscaleWithModel",
+        "_meta": {
+            "title": "Upscale Image (using Model)"
+        }
+    },
+    "101": {
+        "inputs": {
+            "model_name": "4x-UltraSharp.pth"
+        },
+        "class_type": "UpscaleModelLoader",
+        "_meta": {
+            "title": "Load Upscale Model"
+        }
+    },
+    "102": {
+        "inputs": {
+            "upscale_method": "lanczos",
+            "scale_by": 0.5,
+            "image": [
+                "100",
+                0
+            ]
+        },
+        "class_type": "ImageScaleBy",
+        "_meta": {
+            "title": "Upscale Image By"
+        }
+    },
+    "110": {
+        "inputs": {
+            "pixels": [
+                "102",
+                0
+            ],
+            "vae": [
+                "126",
+                2
+            ]
+        },
+        "class_type": "VAEEncode",
+        "_meta": {
+            "title": "VAE Encode"
+        }
+    },
+    "111": {
+        "inputs": {
+            "samples": [
+                "51",
+                0
+            ],
+            "vae": [
+                "126",
+                2
+            ]
+        },
+        "class_type": "VAEDecode",
+        "_meta": {
+            "title": "VAE Decode"
+        }
+    },
+    "116": {
+        "inputs": {
+            "upscale_model": [
+                "101",
+                0
+            ],
+            "image": [
+                "111",
+                0
+            ]
+        },
+        "class_type": "ImageUpscaleWithModel",
+        "_meta": {
+            "title": "Upscale Image (using Model)"
+        }
+    },
+    "118": {
+        "inputs": {
+            "upscale_method": "lanczos",
+            "scale_by": 0.5,
+            "image": [
+                "116",
+                0
+            ]
+        },
+        "class_type": "ImageScaleBy",
+        "_meta": {
+            "title": "Upscale Image By"
+        }
+    },
+    "126": {
+        "inputs": {
+            "ckpt_name": "Juggernaut_X_RunDiffusion.safetensors"
+        },
+        "class_type": "CheckpointLoaderSimple",
+        "_meta": {
+            "title": "Load Checkpoint"
+        }
+    },
+    "136": {
+        "inputs": {
+            "image": "z-image_00131_.png"
+        },
+        "class_type": "LoadImage",
+        "_meta": {
+            "title": "Load Image"
+        }
+    },
+    "137": {
+        "inputs": {
+            "size": 1000,
+            "mode": true
+        },
+        "class_type": "easy imageScaleDownToSize",
+        "_meta": {
+            "title": "Image Scale Down To Size"
+        }
+    },
+    "140": {
+        "inputs": {
+            "filename_prefix": "UP",
+            "images": [
+                "111",
+                0
+            ]
+        },
+        "class_type": "SaveImage",
+        "_meta": {
+            "title": "Save Image"
+        }
+    },
+    "142": {
+        "inputs": {
+            "filename_prefix": "UltraUP",
+            "images": [
+                "118",
+                0
+            ]
+        },
+        "class_type": "SaveImage",
+        "_meta": {
+            "title": "Save Image"
+        }
+    },
+    "144": {
+        "inputs": {
+            "rgthree_comparer": {
+                "images": [
+                    {
+                        "name": "A",
+                        "selected": true,
+                        "url": "/api/view?filename=rgthree.compare._temp_pqauk_00005_.png&type=temp&subfolder=&rand=0.4535073258326441"
+                    },
+                    {
+                        "name": "B",
+                        "selected": true,
+                        "url": "/api/view?filename=rgthree.compare._temp_pqauk_00006_.png&type=temp&subfolder=&rand=0.2908888731875816"
+                    }
+                ]
+            },
+            "image_a": [
+                "147",
+                0
+            ],
+            "image_b": [
+                "118",
+                0
+            ]
+        },
+        "class_type": "Image Comparer (rgthree)",
+        "_meta": {
+            "title": "Image Comparer (rgthree)"
+        }
+    },
+    "147": {
+        "inputs": {
+            "width": 1000,
+            "height": 1000,
+            "crop": "center",
+            "images": [
+                "136",
+                0
+            ]
+        },
+        "class_type": "easy imageScaleDown",
+        "_meta": {
+            "title": "Image Scale Down"
+        }
+    }
+}
